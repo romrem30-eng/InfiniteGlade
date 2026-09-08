@@ -1,0 +1,29 @@
+name: Feature Request
+description: Propose a new feature, patch, or engine enhancement for Infinite Glade
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for Infinite Glade? Propose it here.
+  - type: textarea
+    id: feature_summary
+    attributes:
+      label: Feature Description
+      description: What capability or enhancement would you like to see added?
+    validations:
+      required: true
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Motivation / Use Case
+      description: Why is this feature beneficial to builders and players?
+    validations:
+      required: true
+  - type: textarea
+    id: technical_context
+    attributes:
+      label: Technical Context (Optional)
+      description: If you have reverse-engineered relevant functions or structures, describe them here.
+    validations:
+      required: false

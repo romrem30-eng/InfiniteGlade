@@ -1,0 +1,70 @@
+name: Bug Report
+description: Report a bug, crash, or rendering issue with Infinite Glade
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting an issue. Please fill out the sections below to help diagnose and resolve the problem.
+  - type: input
+    id: game_version
+    attributes:
+      label: Tiny Glade Version
+      description: The version string displayed on the main menu or window corner (e.g., v1.16.0-pre4).
+      placeholder: "v1.16.0-pre4"
+    validations:
+      required: true
+  - type: input
+    id: system_specs
+    attributes:
+      label: System Specifications
+      description: GPU, CPU, and RAM capacity.
+      placeholder: "e.g., NVIDIA GTX 1650 Ti (4GB), Ryzen 5 4600H, 16GB RAM"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - Windows 11 (64-bit)
+        - Windows 10 (64-bit)
+        - Linux (via Proton / Steam Deck)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description of the Problem
+      description: A clear and concise description of what happened.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: What actions trigger this issue?
+      placeholder: |
+        1. Launch via GladeLoader.exe
+        2. Create new world
+        3. Attempt to drag wall beyond 40m
+    validations:
+      required: true
+  - type: textarea
+    id: log_file
+    attributes:
+      label: GladeLoader Log Output
+      description: Paste the contents of `%USERPROFILE%\Saved Games\Tiny Glade\glade_loader.log`.
+      render: text
+    validations:
+      required: false
+  - type: checkboxes
+    id: checkboxes
+    attributes:
+      label: Verification
+      options:
+        - label: I launched the game using GladeLoader.exe (not standard Steam launch).
+          required: true
+        - label: I verified that the assets folder was copied into the game directory.
+          required: true

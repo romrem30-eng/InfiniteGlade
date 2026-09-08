@@ -1,0 +1,35 @@
+name: Game Update / Compatibility Report
+description: Notify maintainers that a new Tiny Glade update broke existing offsets
+labels: ["compatibility", "offset-update"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tiny Glade updates may shift memory addresses. Use this form to report that a new Steam build requires an offset refresh.
+  - type: input
+    id: steam_build
+    attributes:
+      label: New Steam Build ID or Version String
+      description: Check Steam game properties -> Updates -> Build ID, or the in-game version string.
+      placeholder: "e.g., Build 15729182 / v1.16.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: symptom
+    attributes:
+      label: Observed Behavior
+      options:
+        - The game crashes on startup with GladeLoader.exe
+        - The game launches normally, but vanilla boundary limits still apply
+        - Anti-tamper dialog ("Unrecognized files found") appeared
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: log_file
+    attributes:
+      label: GladeLoader Log Output
+      description: Paste the contents of `%USERPROFILE%\Saved Games\Tiny Glade\glade_loader.log` if available.
+      render: text
+    validations:
+      required: false
