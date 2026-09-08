@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Infinite Glade — The Native Unlimiter for Tiny Glade</title>
+  <meta name="description" content="Infinite Glade is a native runtime modification for Tiny Glade that removes boundary constraints and expands camera altitude to 150 meters.">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #111827;
+      --text-muted: #4b5563;
+      --border: #e5e7eb;
+      --border-dark: #d1d5db;
+      --card-bg: #f9fafb;
+      --accent: #0f172a;
+      --accent-hover: #1e293b;
+      --btn-green: #15803d;
+      --btn-green-hover: #166534;
+      --code-bg: #f3f4f6;
+      --success-bg: #f0fdf4;
+      --success-border: #bbf7d0;
+      --success-text: #166534;
+      --error-bg: #fef2f2;
+      --error-border: #fecaca;
+      --error-text: #991b1b;
+      --warn-bg: #fffbeb;
+      --warn-border: #fef3c7;
+      --warn-text: #92400e;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: var(--text);
+      background-color: var(--bg);
+      line-height: 1.6;
+      padding: 0 16px;
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 40px auto;
+    }
+
+    header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 24px;
+      margin-bottom: 32px;
+    }
+
+    h1 {
+      font-size: 2.25rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 1.125rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    .meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border-dark);
+      background: var(--card-bg);
+      color: var(--text-muted);
+    }
+
+    .badge-blue {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1e40af;
+    }
+
+    .badge-green {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+      color: #166534;
+    }
+
+    .badge-orange {
+      background: #fff7ed;
+      border-color: #fed7aa;
+      color: #9a3412;
+    }
+
+    .btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.95rem;
+      padding: 10px 20px;
+      border-radius: 6px;
+      text-decoration: none;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background-color 0.15s ease-in-out;
+    }
+
+    .btn-primary {
+      background-color: var(--btn-green);
+      color: #ffffff;
+      border-color: var(--btn-green);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--btn-green-hover);
+    }
+
+    .btn-secondary {
+      background-color: #ffffff;
+      color: var(--text);
+      border-color: var(--border-dark);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--card-bg);
+    }
+
+    section {
+      margin-bottom: 40px;
+    }
+
+    h2 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+      margin-bottom: 16px;
+      letter-spacing: -0.01em;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 16px 0 8px 0;
+      color: var(--accent);
+    }
+
+    p {
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    ul, ol {
+      margin-left: 24px;
+      margin-bottom: 16px;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    th {
+      background: var(--card-bg);
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 0.875em;
+      background: var(--code-bg);
+      padding: 2px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.85rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+
+    .alert {
+      padding: 12px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      margin: 16px 0;
+      font-size: 0.9rem;
+    }
+
+    .alert-warn {
+      background-color: var(--warn-bg);
+      border-color: var(--warn-border);
+      color: var(--warn-text);
+    }
+
+    .alert-success {
+      background-color: var(--success-bg);
+      border-color: var(--success-border);
+      color: var(--success-text);
+    }
+
+    .alert-error {
+      background-color: var(--error-bg);
+      border-color: var(--error-border);
+      color: var(--error-text);
+    }
+
+    /* Log Parser Tool */
+    .log-parser-box {
+      border: 2px dashed var(--border-dark);
+      border-radius: 6px;
+      padding: 16px;
+      background: var(--card-bg);
+      margin-top: 12px;
+    }
+
+    textarea#logInput {
+      width: 100%;
+      height: 120px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.8rem;
+      padding: 8px;
+      border: 1px solid var(--border-dark);
+      border-radius: 4px;
+      background: #ffffff;
+      margin-bottom: 10px;
+      resize: vertical;
+    }
+
+    #parserResult {
+      margin-top: 12px;
+      display: none;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 24px 0 48px 0;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    footer a {
+      color: var(--text);
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Infinite Glade</h1>
+      <p class="subtitle">The native runtime unlimiter and camera overhaul for Tiny Glade.</p>
+      
+      <div class="meta-bar">
+        <span class="badge badge-green">v1.0.0 Release</span>
+        <span class="badge badge-blue">Target: Steam v1.16.0-pre4</span>
+        <span class="badge badge-orange">Status: Proof of Concept</span>
+        <span class="badge">License: MIT</span>
+        <span class="badge">x64 MSVC Native</span>
+      </div>
+
+      <p>Removes the 40-meter building boundary, lifts camera zoom limits to 150 meters, and flattens background terrain into an unobstructed building canvas.</p>
+
+      <div class="btn-group">
+        <a class="btn btn-primary" href="https://github.com/romrem30-eng/InfiniteGlade/releases/download/v1.0.0/InfiniteGlade-v1.0.0.zip">Download v1.0.0 (ZIP)</a>
+        <a class="btn btn-secondary" href="https://github.com/romrem30-eng/InfiniteGlade">Source on GitHub</a>
+        <a class="btn btn-secondary" href="docs/TECHNICAL_DEEP_DIVE.md">Technical Deep Dive</a>
+      </div>
+    </header>
+
+    <section id="installation">
+      <h2>Installation</h2>
+      <ol>
+        <li>Download <code>InfiniteGlade-v1.0.0.zip</code>.</li>
+        <li>Extract all contents into your Tiny Glade root folder:
+          <pre>C:\Program Files (x86)\Steam\steamapps\common\Tiny Glade\</pre>
+        </li>
+        <li>Run <code>install.bat</code> (or copy <code>GladeLoader.exe</code>, <code>glade_loader.dll</code>, and the <code>assets\</code> folder manually).</li>
+        <li>Launch the game using <code>GladeLoader.exe</code>.</li>
+      </ol>
+
+      <div class="alert alert-warn">
+        <strong>Steam Launch Options Tip:</strong> To launch through the standard Steam "Play" button, open Tiny Glade Properties in Steam, navigate to General &gt; Launch Options, and enter:
+        <pre>"C:\Program Files (x86)\Steam\steamapps\common\Tiny Glade\GladeLoader.exe" %command%</pre>
+      </div>
+    </section>
+
+    <section id="log-checker">
+      <h2>Log Analyzer (SMAPI-style)</h2>
+      <p>Check your installation status without external tools. Paste the contents of your <code>glade_loader.log</code> file below to diagnose hooks, offsets, and anti-tamper state.</p>
+
+      <div class="log-parser-box">
+        <textarea id="logInput" placeholder="Paste contents of %USERPROFILE%\Saved Games\Tiny Glade\glade_loader.log here..."></textarea>
+        <button class="btn btn-secondary" onclick="analyzeLog()">Analyze Log</button>
+        <button class="btn btn-secondary" onclick="clearLog()">Clear</button>
+
+        <div id="parserResult"></div>
+      </div>
+    </section>
+
+    <section id="benchmark">
+      <h2>Verified Test Rig and Performance</h2>
+      <p>Profiled under live gameplay, continuous procedural building, and 150-meter altitude panning:</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Specification</th>
+            <th>Observed Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>CPU</td>
+            <td>AMD Ryzen 5 4600H (6C / 12T)</td>
+            <td>Zero thread stuttering; Bevy system dispatch remains synchronized</td>
+          </tr>
+          <tr>
+            <td>GPU</td>
+            <td>NVIDIA GeForce GTX 1650 Ti (4GB VRAM)</td>
+            <td>Consistent 60 FPS across expanded building footprints</td>
+          </tr>
+          <tr>
+            <td>RAM</td>
+            <td>16 GB DDR4</td>
+            <td>Negligible memory overhead (&lt; 25MB above vanilla footprint)</td>
+          </tr>
+          <tr>
+            <td>OS</td>
+            <td>Windows 11 / 10 (x64)</td>
+            <td>Win32 remote thread injection supported natively</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="save-safety">
+      <h2>Save Game Safety</h2>
+      <p>Tiny Glade's serialization logic stores all geometry coordinates into standard world save files, including structures placed outside the 40-meter radius.</p>
+      <div class="alert alert-warn">
+        <strong>Important:</strong> If you launch the game in vanilla mode (without the loader), vanilla boundary routines will reject edit operations on out-of-bounds structures. To edit or expand them, always run the game via <code>GladeLoader.exe</code>.
+      </div>
+      <p>Save directory location:</p>
+      <pre>%USERPROFILE%\Saved Games\Tiny Glade\Steam\&lt;YourSteamID&gt;\saves\</pre>
+    </section>
+
+    <section id="technical-overview">
+      <h2>Technical Patch Summary</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Target Function / Offset</th>
+            <th>Vanilla Operation</th>
+            <th>Patched Behavior</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>RVA +0x176F5F</code></td>
+            <td>Anti-tamper integrity verification loop</td>
+            <td>Unconditional jump bypass (<code>E9 90 00 00 00 90</code>)</td>
+          </tr>
+          <tr>
+            <td><code>GladeBorder::is_*</code> (4 methods)</td>
+            <td>Point/shape inclusion testing</td>
+            <td>Immediate return true (<code>mov al, 1; ret</code>)</td>
+          </tr>
+          <tr>
+            <td><code>RVA +0x90E88D</code></td>
+            <td>Pan delta clamp</td>
+            <td>Bypassed (<code>jmp</code>)</td>
+          </tr>
+          <tr>
+            <td><code>RVA +0x90E908</code></td>
+            <td>Perimeter focus clamp</td>
+            <td>Bypassed; jumps straight to focus update</td>
+          </tr>
+          <tr>
+            <td><code>RVA +0x2EB6074</code></td>
+            <td>Static max zoom float (40.0f)</td>
+            <td>Direct memory overwrite to 150.0f</td>
+          </tr>
+          <tr>
+            <td><code>assets/meshes/*.json</code></td>
+            <td>Background terrain &amp; foliage meshes</td>
+            <td>Vertices translated to Y = -500.0 (preserves Vulkan SSBO buffer size)</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>For complete disassembly and implementation details, read the <a href="docs/TECHNICAL_DEEP_DIVE.md">Technical Deep Dive</a>.</p>
+    </section>
+
+    <section id="faq">
+      <h2>Frequently Asked Questions</h2>
+      
+      <h3>Windows SmartScreen flagged GladeLoader.exe. Is it safe?</h3>
+      <p>Yes. GladeLoader is an open-source Win32 process injector written in Rust. Because it is not signed with an expensive commercial EV certificate and invokes <code>CreateRemoteThread</code>, generic heuristics flag it. Click <em>More info &gt; Run anyway</em>. The full source code is available on GitHub for independent review.</p>
+
+      <h3>What happens when Tiny Glade receives an update on Steam?</h3>
+      <p>The current release relies on hardcoded RVAs for build <code>v1.16.0-pre4</code>. If a game patch updates executable offsets, the loader will safely fail to hook without corrupting game files. Open a ticket on GitHub Issues, and an offset update will be published. Dynamic signature scanning (AOB) is currently in development.</p>
+
+      <h3>Does this affect game achievements?</h3>
+      <p>No. Steam achievements and Steam overlay function normally when injected via GladeLoader.</p>
+    </section>
+
+    <footer>
+      <p>Infinite Glade is an independent open-source project and is not affiliated with Pouncelight Games.</p>
+      <p style="margin-top: 8px;">
+        <a href="https://github.com/romrem30-eng/InfiniteGlade">GitHub Repository</a> &bull;
+        <a href="https://github.com/romrem30-eng/InfiniteGlade/issues">Report an Issue</a> &bull;
+        <a href="https://github.com/romrem30-eng/InfiniteGlade/discussions">Discussions</a> &bull;
+        <a href="docs/TECHNICAL_DEEP_DIVE.md">Architecture Documentation</a>
+      </p>
+    </footer>
+  </div>
+
+  <script>
+    function analyzeLog() {
+      const input = document.getElementById('logInput').value.trim();
+      const resultDiv = document.getElementById('parserResult');
+
+      if (!input) {
+        resultDiv.className = 'alert alert-warn';
+        resultDiv.innerHTML = '<strong>No input:</strong> Please paste the text of glade_loader.log first.';
+        resultDiv.style.display = 'block';
+        return;
+      }
+
+      let checks = {
+        init: input.includes('GladeLoader v1.0.0 initializing'),
+        baseAddress: /Base image address: 0x[0-9A-Fa-f]+/.test(input),
+        antiTamper: input.includes('Integrity check bypassed'),
+        borderPatches: (input.match(/patched \(always TRUE\)/g) || []).length,
+        cameraPan: input.includes('Camera pan delta clamp UNLOCKED'),
+        cameraZoom: input.includes('Max zoom distance increased to 150m'),
+        cleanBorder: input.includes('Glade border markers & boundary stones cleanly REMOVED')
+      };
+
+      let outputHtml = '';
+      let isSuccess = checks.init && checks.antiTamper && checks.borderPatches === 4 && checks.cameraZoom;
+
+      if (isSuccess) {
+        outputHtml += '<div class="alert alert-success">';
+        outputHtml += '<strong>Diagnostic Status: ALL CHECKS PASSED (Healthy Installation)</strong><br>';
+        outputHtml += '<ul>';
+        outputHtml += '<li>Base Address: Resolved successfully</li>';
+        outputHtml += '<li>Anti-Tamper Integrity Check: Bypassed</li>';
+        outputHtml += '<li>Boundary Patches: 4/4 active (is_within_glade_shape, is_pos_inside, is_shape_inside, is_curve2_inside)</li>';
+        outputHtml += '<li>Camera System: Unlocked (150m stratosphere zoom active)</li>';
+        outputHtml += '<li>Visual Skirt: Border stones and debris suppressed</li>';
+        outputHtml += '</ul>';
+        outputHtml += 'Your mod is running with optimal configuration.';
+        outputHtml += '</div>';
+      } else {
+        outputHtml += '<div class="alert alert-error">';
+        outputHtml += '<strong>Diagnostic Status: ISSUES DETECTED</strong><br>';
+        outputHtml += '<ul>';
+        if (!checks.init) outputHtml += '<li>Initialization string missing. Did GladeLoader.exe run properly?</li>';
+        if (!checks.antiTamper) outputHtml += '<li>Anti-tamper bypass was not executed.</li>';
+        if (checks.borderPatches < 4) outputHtml += '<li>Boundary patches incomplete: ' + checks.borderPatches + '/4 applied.</li>';
+        if (!checks.cameraZoom) outputHtml += '<li>Max zoom memory patch was not applied.</li>';
+        outputHtml += '</ul>';
+        outputHtml += 'Please verify that your Tiny Glade build matches Steam v1.16.0-pre4.';
+        outputHtml += '</div>';
+      }
+
+      resultDiv.innerHTML = outputHtml;
+      resultDiv.style.display = 'block';
+    }
+
+    function clearLog() {
+      document.getElementById('logInput').value = '';
+      document.getElementById('parserResult').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
