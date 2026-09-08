@@ -1,0 +1,7 @@
+target/
+bin/
+release/
+*.pdb
+*.dmp
+*.bak
+*.log

@@ -1,0 +1,20 @@
+[package]
+name = "glade_loader"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "glade_loader"
+crate-type = ["cdylib"]
+
+[[bin]]
+name = "GladeLoader"
+path = "src/main.rs"
+
+[dependencies]
+minhook = "0.9.0"
+windows-sys = { version = "0.61.2", features = [
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Threading"
+] }
