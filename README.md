@@ -1,4 +1,4 @@
-# 🏰 Infinite Glade
+# Infinite Glade
 
 [![Release](https://img.shields.io/github/v/release/romrem30-eng/InfiniteGlade?style=for-the-badge&color=brightgreen)](https://github.com/romrem30-eng/InfiniteGlade/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
@@ -8,17 +8,17 @@
 
 ---
 
-## ✨ Features
+## Features
 
-- 🏗️ **Infinite Build Area**: Build castles, houses, walls, towers, roofs, stairs, and plant trees anywhere without being stopped by the invisible border.
-- 🦅 **Free Camera & 3.7x Zoom**: Unlocked camera panning past the clearing edge and extended maximum zoom distance from `40m` to `150m`.
-- 🌅 **Infinite Flat Horizon**: The 27-meter background terrain hills are flattened to $Y = 0.0$, creating a seamless endless canvas for mega-builds.
-- 🧹 **Zero Clutter / Clean Skirt**: Photomode border stones, flickering rocks (Z-fighting), 2D billboards, and 1,500+ distant background bushes are cleanly submerged underground.
-- ⚡ **Anti-Tamper Bypass**: Built-in runtime integrity check bypass for stable, crash-free execution at 60+ FPS.
+- **Infinite Build Area**: Build castles, houses, walls, towers, roofs, stairs, and plant trees anywhere without being stopped by the invisible border.
+-  **Free Camera & 3.7x Zoom**: Unlocked camera panning past the clearing edge and extended maximum zoom distance from `40m` to `150m`.
+-  **Infinite Flat Horizon**: The 27-meter background terrain hills are flattened to $Y = 0.0$, creating a seamless endless canvas for mega-builds.
+-  **Zero Clutter / Clean Skirt**: Photomode border stones, flickering rocks (Z-fighting), 2D billboards, and 1,500+ distant background bushes are cleanly submerged underground.
+-  **Anti-Tamper Bypass**: Built-in runtime integrity check bypass for stable, crash-free execution at 60+ FPS.
 
 ---
 
-## 📦 Quick Installation (1-Minute)
+##  Quick Installation (1-Minute)
 
 1. Download **`InfiniteGlade-v1.0.0.zip`** from [**Releases**](https://github.com/romrem30-eng/InfiniteGlade/releases).
 2. Extract the archive contents into your **Tiny Glade** folder:
@@ -28,7 +28,7 @@
 
 ---
 
-## 🛠️ How It Works (Technical Overview)
+##  How It Works (Technical Overview)
 
 Tiny Glade is built on Rust using the **Bevy ECS** engine with custom Vulkan rendering (`Rhapsody`). The mod works on two levels:
 
@@ -49,7 +49,7 @@ Tiny Glade is built on Rust using the **Bevy ECS** engine with custom Vulkan ren
 
 ---
 
-## 🔧 Building from Source
+##  Building from Source
 
 Requirements:
 - [Rust](https://www.rust-lang.org/) (nightly or latest stable with 2024 edition support)
