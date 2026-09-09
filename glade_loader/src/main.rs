@@ -1,4 +1,4 @@
-﻿use std::ffi::{c_void, OsStr};
+use std::ffi::{c_void, OsStr};
 use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 
@@ -33,6 +33,7 @@ struct PROCESS_INFORMATION {
 }
 
 const CREATE_SUSPENDED: u32 = 0x00000004;
+const DETACHED_PROCESS: u32 = 0x00000008;
 const MEM_COMMIT: u32 = 0x00001000;
 const MEM_RESERVE: u32 = 0x00002000;
 const PAGE_READWRITE: u32 = 0x04;
@@ -107,7 +108,11 @@ fn main() {
     };
 
     let game_dir = game_exe.parent().unwrap();
-    let dll_path = game_dir.join("glade_loader.dll");
+    let dll_path = if current_dir.join("glade_loader.dll").exists() {
+        current_dir.join("glade_loader.dll")
+    } else {
+        game_dir.join("glade_loader.dll")
+    };
 
     if !dll_path.exists() {
         eprintln!("[-] Error: glade_loader.dll not found at {:?}", dll_path);
@@ -120,19 +125,21 @@ fn main() {
     unsafe {
         let mut si: STARTUPINFOW = std::mem::zeroed();
         si.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
+        si.dw_flags = 0x00000001; // STARTF_USESHOWWINDOW
+        si.w_show_window = 1; // SW_SHOWNORMAL
         let mut pi: PROCESS_INFORMATION = std::mem::zeroed();
 
-        let app_path_wide = to_wide_null(game_exe.to_str().unwrap());
+        let mut cmd_line_wide = to_wide_null(&format!("\"{}\"", game_exe.to_str().unwrap()));
         let game_dir_wide = to_wide_null(game_dir.to_str().unwrap());
 
         println!("[*] Launching game process in suspended state...");
         let success = CreateProcessW(
-            app_path_wide.as_ptr(),
-            std::ptr::null_mut(),
+            std::ptr::null(),
+            cmd_line_wide.as_mut_ptr(),
             std::ptr::null(),
             std::ptr::null(),
             0,
-            CREATE_SUSPENDED,
+            CREATE_SUSPENDED | DETACHED_PROCESS,
             std::ptr::null(),
             game_dir_wide.as_ptr(),
             &mut si,

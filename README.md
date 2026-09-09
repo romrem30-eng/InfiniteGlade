@@ -42,7 +42,7 @@ The modification was profiled on mainstream mobile gaming hardware, confirming s
 
 ## Installation
 
-1. Download `InfiniteGlade-v1.0.0.zip` from [Releases](https://github.com/romrem30-eng/InfiniteGlade/releases).
+1. Download `InfiniteGlade-v1.1.0.zip` from [Releases](https://github.com/romrem30-eng/InfiniteGlade/releases).
 2. Extract the archive contents into your Tiny Glade root directory:
    - Default Steam path: `C:\Program Files (x86)\Steam\steamapps\common\Tiny Glade\`
 3. Run `install.bat` (or copy `GladeLoader.exe`, `glade_loader.dll`, and the `assets\` directory manually).
