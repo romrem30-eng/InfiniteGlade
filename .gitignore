@@ -5,3 +5,4 @@ release/
 *.dmp
 *.bak
 *.log
+*_backup*/
