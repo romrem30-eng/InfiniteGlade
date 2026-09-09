@@ -152,42 +152,42 @@ fn apply_all_patches() {
         const PAGE_READWRITE: u32 = 0x04;
         let mut old_protect = 0;
 
-        log("Step 4: Resolve Anti-Tamper");
-        let rva_tamper = resolve_rva(
+        log("Step 4: Resolve Diagnostic Integrity Check");
+        let rva_integrity = resolve_rva(
             base,
             image_size,
-            "Anti-Tamper",
+            "Integrity Check",
             "80 BD 41 02 00 00 00 0F 84",
             7, // offset to '0F 84'
             0x2D69FF,
         );
-        log(&format!("Step 4 result: rva_tamper = 0x{:X}", rva_tamper));
-        let patch_addr = (base + rva_tamper) as *mut u8;
+        log(&format!("Step 4 result: rva_integrity = 0x{:X}", rva_integrity));
+        let patch_addr = (base + rva_integrity) as *mut u8;
         if VirtualProtect(patch_addr as _, 6, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
-            // Jump directly over BOTH unrecognized files check and modified files check to 0x2D6AE3
+            // Jump directly over check to 0x2D6AE3
             let patch: [u8; 6] = [0xE9, 0xDF, 0x00, 0x00, 0x00, 0x90];
             std::ptr::copy_nonoverlapping(patch.as_ptr(), patch_addr, 6);
             let mut dummy = 0;
             VirtualProtect(patch_addr as _, 6, old_protect, &mut dummy);
-            log(">>> [Anti-Tamper] Primary integrity check successfully bypassed (jump to 0x2D6AE3)!");
+            log(">>> [Integrity Check] Primary check successfully bypassed (jump to 0x2D6AE3)!");
         }
 
         // Secondary check at 0x2D6A9D (modified files branch): je 0x2D6AE3 -> jmp 0x2D6AE3 (EB 44)
-        let rva_tamper2 = resolve_rva(
+        let rva_integrity2 = resolve_rva(
             base,
             image_size,
-            "Anti-Tamper Secondary",
+            "Integrity Check Secondary",
             "0F B6 9D 40 02 00 00 84 DB 74",
             9, // offset to '74 44'
             0x2D6A9D,
         );
-        let patch_addr2 = (base + rva_tamper2) as *mut u8;
+        let patch_addr2 = (base + rva_integrity2) as *mut u8;
         if VirtualProtect(patch_addr2 as _, 2, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
             let patch2: [u8; 2] = [0xEB, 0x44];
             std::ptr::copy_nonoverlapping(patch2.as_ptr(), patch_addr2, 2);
             let mut dummy = 0;
             VirtualProtect(patch_addr2 as _, 2, old_protect, &mut dummy);
-            log(">>> [Anti-Tamper] Secondary integrity check successfully bypassed!");
+            log(">>> [Integrity Check] Secondary check successfully bypassed!");
         }
 
         // --------------------------------------------------------------

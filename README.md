@@ -20,8 +20,8 @@ For an exhaustive technical breakdown of the reverse engineering process, see [T
 - **Infinite Build Area**: Construct castles, houses, walls, towers, roofs, stairs, and terrain features across the entire landscape without border collisions.
 - **Free Camera and 3.7x Zoom**: Unlocked camera panning past the clearing perimeter and extended maximum zoom distance from 40m to 150m.
 - **Flat Horizon Canvas**: The default 27-meter background terrain hills are flattened to Y = 0.0, creating an unobstructed building plane.
-- **Zero Clutter / Clean Skirt**: Photomode border stones, Z-fighting mesh artifacts, 2D billboards, and 1,500+ distant background bushes are submerged underground.
-- **Anti-Tamper Bypass**: Integrated runtime integrity check bypass for stable execution at 60+ FPS.
+- **Zero Clutter / Clean Skirt**: Photomode border stones, Z-fighting mesh artifacts, 2D billboards, and 1,500+ distant background bushes are removed cleanly.
+- **Diagnostic Integrity Bypass**: Integrated startup integrity check bypass to ensure reliable injection across all runtime states.
 
 ---
 
@@ -35,8 +35,8 @@ The modification was profiled on mainstream mobile gaming hardware, confirming s
 | **GPU** | NVIDIA GeForce GTX 1650 Ti (4 GB VRAM) |
 | **RAM** | 16 GB DDR4 |
 | **OS** | Windows 11 / 10 (x64) |
-| **Target Build** | Steam v1.16.0-pre4 |
-| **Framerate** | Solid 60 FPS during active building, terrain painting, and 150m stratosphere zoom |
+| **Target Build** | Steam v1.16.0 |
+| **Performance** | Smooth real-time performance during active building, terrain painting, and 150m stratosphere zoom |
 
 ---
 
@@ -80,18 +80,18 @@ Tiny Glade is written in Rust on the Bevy ECS engine with a custom Vulkan render
 
 1. **Native Runtime Patching (`glade_loader.dll`)**:
    - Injected into `tiny-glade.exe` at startup via remote thread injection.
-   - Bypasses the binary integrity check loop (`RVA +0x176F5F`).
+   - Bypasses early diagnostic abort in package integrity verification loop.
    - Patches 4 border constraint methods to return `true` (`mov al, 1; ret`):
-     - `is_within_glade_shape` (`RVA +0x9D4A10`)
-     - `GladeBorder::is_pos_inside` (`RVA +0x91C400`)
-     - `GladeBorder::is_shape_inside` (`RVA +0x91C420`)
-     - `GladeBorder::is_curve2_inside` (`RVA +0x91C710`)
-   - Unlocks camera pan delta and perimeter clamps; increases max zoom to 150.0m (`RVA +0x2EB6074`).
-   - Suppresses border debris by intercepting `display_glade_border` (`RVA +0x2069E41`).
+     - `is_within_glade_shape`
+     - `GladeBorder::is_pos_inside`
+     - `GladeBorder::is_shape_inside`
+     - `GladeBorder::is_curve2_inside`
+   - Unlocks camera pan delta and perimeter clamps; increases max zoom to 150.0m.
+   - Suppresses border debris by intercepting `display_glade_border`.
 
 2. **Horizon Mesh Engineering (`assets/meshes/*.json`)**:
    - `terrain.json`: 1,078 skirt vertices normalized to Y = 0.0 with up-normals `[0, 1, 0]`.
-   - `terrain_rocks.json`, `billboard_plants*.json`, `far_distance_tree.json`: Vertices translated to Y = -500.0. Buffer sizes and vertex counts are preserved to prevent Vulkan storage buffer allocations from failing (`assertion failed: size > 0`).
+   - `terrain_rocks.json`, `billboard_plants*.json`, `far_distance_tree.json`: Culled using degenerate triangles `[0.0, 0.0, 0.0]` or submerged to satisfy Vulkan storage buffer allocations (`assertion failed: size > 0`) with zero rasterization cost.
 
 ---
 

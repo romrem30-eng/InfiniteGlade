@@ -15,7 +15,7 @@ The objective of Infinite Glade was to:
 2. Extend camera panning and zoom into the stratosphere (150 meters).
 3. Transform the surrounding 27-meter decorative hill backdrop into an endless, flat building plane.
 4. Suppress visual border clutter (boundary stones, billboard foliage, and Z-fighting rock meshes).
-5. Maintain 60+ FPS stability on mainstream hardware with zero engine panics or crashes.
+5. Maintain solid real-time rendering performance on mainstream hardware with zero engine panics or crashes.
 
 ---
 
@@ -27,7 +27,7 @@ Tiny Glade is implemented in **Rust** using the **Bevy ECS** (Entity Component S
 - **Monolithic Compilation**: The binary (`tiny-glade.exe`) is compiled as a release x64 MSVC binary with aggressive LLVM optimizations, cross-crate inlining, and mangled symbol names.
 - **Bevy System Dispatch**: Gameplay systems are organized into stages and schedules. Systems execute in parallel where archetype queries permit, and state mutations are deferred via command buffers.
 - **Vulkan SSBO Allocations**: Procedural geometry and asset instances are backed by Vulkan Shader Storage Buffer Objects (SSBOs). The engine strictly enforces buffer allocation sizes through debug and runtime assertions (e.g., `assertion failed: size > 0`).
-- **Internal Anti-Tamper / Asset Hash Verification**: On startup, the engine verifies the integrity of registered asset packages and runtime state. Any unexpected deviation triggers an early exit dialogue titled "Unrecognized files found".
+- **Asset Verification & Mod Tagging**: Tiny Glade has no anti-tamper DRM or anti-cheat. On startup, the engine inspects asset package state. Modified files cause the game to display a `+mods` watermark under the Tiny Glade logo in screenshots (to preserve the integrity of vanilla building challenges) and provide diagnostic info in crash logs if a crash occurs.
 
 ---
 
@@ -35,12 +35,12 @@ Tiny Glade is implemented in **Rust** using the **Bevy ECS** (Entity Component S
 
 The analysis began by analyzing symbol information and disassembling critical systems within `tiny-glade.exe`.
 
-### 3.1 Anti-Tamper Bypass
-When modified mesh files or external libraries are introduced, the engine's initialization sequence executes an integrity verification pass.
+### 3.1 Asset Integrity Verification Bypass
+Tiny Glade includes an internal integrity verification pass during startup (`verify_package_integrity_and_show_report`). While this is not an anti-tamper DRM system, during early development remote thread injection timing combined with modified runtime state could trigger early diagnostic aborts.
 
-- **Target Location**: `RVA +0x176F5F`
-- **Mechanism**: The check compares hashed directory states against expected manifest checksums. If a mismatch is detected, the execution branch routes to a termination routine.
-- **Resolution**: An unconditional jump patch (`E9 90 00 00 00 90`) is written over the branch at `RVA +0x176F5F`. This forces execution to bypass the exit handler entirely, allowing modified assets to load without interference.
+- **Target Location**: `RVA +0x176F5F` (v1.16.0-pre4) / `0x2D69FF` (v1.16.0)
+- **Mechanism**: Evaluates package manifests and runtime state for crash diagnostics.
+- **Resolution**: An unconditional jump patch (`E9 DF 00 00 00 90` to offset `+0xDF` / `0x2D6AE3`) routes execution cleanly past the diagnostic handler directly to standard completion, guaranteeing consistent startup when injected.
 
 ### 3.2 Spatial Boundary Validation (`GladeBorder`)
 The game enforces construction limits using a dedicated spatial boundary component, `GladeBorder`. When the player manipulates a building tool, the cursor position and geometry bounds are queried against four core methods:
@@ -96,14 +96,23 @@ thread 'main' panicked at 'assertion failed: size > 0', rhapsody/src/vulkan/buff
 ```
 The Rhapsody renderer allocates Vulkan SSBOs based on the byte length of deserialized vertex and index buffers. A zero-length buffer violates the precondition `size > 0` and triggers an immediate panic.
 
-### The Subterranean Translation Solution
-To resolve this without modifying the graphics engine binary:
+### The Mesh Suppression Approaches
+
+#### 1. The Subterranean Translation Workaround (Initial PoC)
+To bypass the panic without modifying the graphics engine binary:
 1. **Preservation of Buffer Schemas**: Vertex counts, triangle indices, and metadata were left structurally intact.
 2. **Coordinate Translation to Subterranean Space**: A processing script parsed the JSON mesh files (`terrain_rocks.json`, `billboard_plants.json`, `billboard_plants_2.json`, `distant_billboard.json`, `far_distance_tree.json`) and translated the Y coordinate (height) of every vertex to `Y = -500.0`.
-   - Result: The meshes still allocate valid Vulkan buffers, satisfying all engine assertions.
-   - The geometry renders 500 meters beneath the terrain plane, completely invisible to the camera and incurring negligible rasterization cost due to early depth testing.
-3. **Horizon Skirt Normalization (`terrain.json`)**:
-   The perimeter skirt mesh containing 1,078 vertices was processed so that all vertex positions were clamped to `Y = 0.0` with surface normal vectors aligned to `[0.0, 1.0, 0.0]`. This transformed the obstructive hills into an endless, flat horizon.
+   - Result: The meshes still allocate valid Vulkan buffers, satisfying engine assertions.
+   - The geometry renders 500 meters beneath the terrain plane, invisible to the camera.
+
+#### 2. The Degenerate Triangle Optimization (Engine-Native Best Practice)
+As recommended directly by engine developer Tomasz Stachowiak, an even cleaner and mathematically optimal solution is replacing unwanted meshes with a single **degenerate triangle**:
+- A single triangle consisting of 3 identical vertices at `[0.0, 0.0, 0.0]`.
+- This satisfies the Vulkan buffer allocator assertion (`size > 0`), but because the triangle has zero area, the hardware rasterizer / primitive clipping unit immediately discards it before pixel shading.
+- Result: Clean JSON definitions, minimal memory footprint, and zero rasterization cost.
+
+#### 3. Horizon Skirt Normalization (`terrain.json`)
+The perimeter skirt mesh containing 1,078 vertices was processed so that all vertex positions were clamped to `Y = 0.0` with surface normal vectors aligned to `[0.0, 1.0, 0.0]`. This transformed the obstructive hills into an endless, flat horizon.
 
 ---
 

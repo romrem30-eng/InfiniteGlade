@@ -332,7 +332,7 @@
 
     <section id="log-checker">
       <h2>Log Analyzer (SMAPI-style)</h2>
-      <p>Check your installation status without external tools. Paste the contents of your <code>glade_loader.log</code> file below to diagnose hooks, offsets, and anti-tamper state.</p>
+      <p>Check your installation status without external tools. Paste the contents of your <code>glade_loader.log</code> file below to diagnose hooks, offsets, and diagnostic state.</p>
 
       <div class="log-parser-box">
         <textarea id="logInput" placeholder="Paste contents of %USERPROFILE%\Saved Games\Tiny Glade\glade_loader.log here..."></textarea>
@@ -403,7 +403,7 @@
         <tbody>
           <tr>
             <td><code>RVA +0x176F5F</code></td>
-            <td>Anti-tamper integrity verification loop</td>
+            <td>Startup diagnostic integrity loop</td>
             <td>Unconditional jump bypass (<code>E9 90 00 00 00 90</code>)</td>
           </tr>
           <tr>
@@ -475,7 +475,7 @@
       let checks = {
         init: input.includes('GladeLoader v1.0.0 initializing'),
         baseAddress: /Base image address: 0x[0-9A-Fa-f]+/.test(input),
-        antiTamper: input.includes('Integrity check bypassed'),
+        integrityCheck: input.includes('Integrity check bypassed'),
         borderPatches: (input.match(/patched \(always TRUE\)/g) || []).length,
         cameraPan: input.includes('Camera pan delta clamp UNLOCKED'),
         cameraZoom: input.includes('Max zoom distance increased to 150m'),
@@ -483,14 +483,14 @@
       };
 
       let outputHtml = '';
-      let isSuccess = checks.init && checks.antiTamper && checks.borderPatches === 4 && checks.cameraZoom;
+      let isSuccess = checks.init && checks.integrityCheck && checks.borderPatches === 4 && checks.cameraZoom;
 
       if (isSuccess) {
         outputHtml += '<div class="alert alert-success">';
         outputHtml += '<strong>Diagnostic Status: ALL CHECKS PASSED (Healthy Installation)</strong><br>';
         outputHtml += '<ul>';
         outputHtml += '<li>Base Address: Resolved successfully</li>';
-        outputHtml += '<li>Anti-Tamper Integrity Check: Bypassed</li>';
+        outputHtml += '<li>Startup Diagnostic Check: Bypassed</li>';
         outputHtml += '<li>Boundary Patches: 4/4 active (is_within_glade_shape, is_pos_inside, is_shape_inside, is_curve2_inside)</li>';
         outputHtml += '<li>Camera System: Unlocked (150m stratosphere zoom active)</li>';
         outputHtml += '<li>Visual Skirt: Border stones and debris suppressed</li>';
@@ -502,7 +502,7 @@
         outputHtml += '<strong>Diagnostic Status: ISSUES DETECTED</strong><br>';
         outputHtml += '<ul>';
         if (!checks.init) outputHtml += '<li>Initialization string missing. Did GladeLoader.exe run properly?</li>';
-        if (!checks.antiTamper) outputHtml += '<li>Anti-tamper bypass was not executed.</li>';
+        if (!checks.integrityCheck) outputHtml += '<li>Diagnostic integrity bypass was not executed.</li>';
         if (checks.borderPatches < 4) outputHtml += '<li>Boundary patches incomplete: ' + checks.borderPatches + '/4 applied.</li>';
         if (!checks.cameraZoom) outputHtml += '<li>Max zoom memory patch was not applied.</li>';
         outputHtml += '</ul>';
