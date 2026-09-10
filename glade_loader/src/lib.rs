@@ -159,27 +159,27 @@ fn apply_all_patches() {
             "Integrity Check",
             "80 BD 41 02 00 00 00 0F 84",
             7, // offset to '0F 84'
-            0x2D69FF,
+            0x26736F,
         );
         log(&format!("Step 4 result: rva_integrity = 0x{:X}", rva_integrity));
         let patch_addr = (base + rva_integrity) as *mut u8;
         if VirtualProtect(patch_addr as _, 6, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
-            // Jump directly over check to 0x2D6AE3
+            // Jump directly over check to 0x267453
             let patch: [u8; 6] = [0xE9, 0xDF, 0x00, 0x00, 0x00, 0x90];
             std::ptr::copy_nonoverlapping(patch.as_ptr(), patch_addr, 6);
             let mut dummy = 0;
             VirtualProtect(patch_addr as _, 6, old_protect, &mut dummy);
-            log(">>> [Integrity Check] Primary check successfully bypassed (jump to 0x2D6AE3)!");
+            log(">>> [Integrity Check] Primary check successfully bypassed!");
         }
 
-        // Secondary check at 0x2D6A9D (modified files branch): je 0x2D6AE3 -> jmp 0x2D6AE3 (EB 44)
+        // Secondary check at 0x26740D (modified files branch): je 0x267453 -> jmp 0x267453 (EB 44)
         let rva_integrity2 = resolve_rva(
             base,
             image_size,
             "Integrity Check Secondary",
             "0F B6 9D 40 02 00 00 84 DB 74",
             9, // offset to '74 44'
-            0x2D6A9D,
+            0x26740D,
         );
         let patch_addr2 = (base + rva_integrity2) as *mut u8;
         if VirtualProtect(patch_addr2 as _, 2, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
@@ -199,15 +199,15 @@ fn apply_all_patches() {
             "Infinite Glade: is_within_glade_shape",
             "80 3D ? ? ? ? 00 74 ? 0F 28 D0 F3 0F 59 D0",
             0,
-            0xA25790,
+            0xA23AB0,
         );
         let rva_pos_inside = resolve_rva(
             base,
             image_size,
             "Infinite Glade: GladeBorder::is_pos_inside",
-            "41 5C 41 5D 41 5E 41 5F 5D C3 ? ? ? ? 48 89 C8 48 83 C1 04 83 38 01",
-            14, // offset to '48 89 C8'
-            0xB08AA0,
+            "48 89 C8 48 83 C1 04 83 38 01 0F 85 ? ? ? ? E9 ? ? ? ? CC CC CC CC CC CC CC CC CC CC CC 56 57 48 83",
+            0,
+            0xAA2120,
         );
         let rva_shape_inside = resolve_rva(
             base,
@@ -215,7 +215,7 @@ fn apply_all_patches() {
             "Infinite Glade: GladeBorder::is_shape_inside",
             "41 56 56 57 55 53 48 81 EC E0 00 00 00 44 0F 29 84 24 D0 00 00 00",
             0,
-            0xB08AC0,
+            0xAF6910,
         );
         let rva_curve2_inside = resolve_rva(
             base,
@@ -223,7 +223,7 @@ fn apply_all_patches() {
             "Infinite Glade: GladeBorder::is_curve2_inside",
             "41 57 41 56 56 57 53 48 83 EC 20 48 8B 5A 10 48 85 DB 74",
             0,
-            0xB08DB0,
+            0xAF6C00,
         );
 
         let patches_always_true = [
@@ -253,7 +253,7 @@ fn apply_all_patches() {
             "Camera Pan Delta Clamp",
             "44 0F 2E DD 0F 28 EB 44 0F 28 D2 76 2B",
             11, // offset to '76 2B'
-            0xABF87D,
+            0xAB120D,
         );
         let cam_delta_ptr = (base + rva_cam_delta) as *mut u8;
         if VirtualProtect(cam_delta_ptr as _, 2, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
@@ -270,7 +270,7 @@ fn apply_all_patches() {
             "Camera Position Boundary Clamp",
             "01 0F 85 02 03 00 00 44 0F 28 54",
             1, // offset to '0F 85 02 03 00 00'
-            0xABF8F8,
+            0xAB1288,
         );
         let cam_pos_ptr = (base + rva_cam_pos) as *mut u8;
         if VirtualProtect(cam_pos_ptr as _, 6, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
@@ -290,7 +290,7 @@ fn apply_all_patches() {
             "Max Zoom Float",
             "00 00 40 40 00 00 20 42 00 00 10 41 00 00 C8 44",
             4, // offset to 40.0f
-            0x2EC5EA4,
+            0x2EA61F4,
         );
         let zoom_ptr = (base + rva_zoom_float) as *mut f32;
         if VirtualProtect(zoom_ptr as _, 4, PAGE_READWRITE, &mut old_protect) != 0 {
@@ -309,7 +309,7 @@ fn apply_all_patches() {
             "Zoom Anywhere Check",
             "0F 2E DA 0F 86 61 01 00 00",
             3, // offset to '0F 86 61 01 00 00'
-            0xAACFBE,
+            0x91C9CE,
         );
         let zoom_check_ptr = (base + rva_zoom_check) as *mut u8;
         if VirtualProtect(zoom_check_ptr as _, 6, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
@@ -329,7 +329,7 @@ fn apply_all_patches() {
             "Clean Glade Border Stones",
             "48 8B 01 80 38 0F 75 19 0F 28 B5",
             6, // offset to '75 19'
-            0x2057181,
+            0x2056881,
         );
         let border_branch_ptr = (base + rva_border_branch) as *mut u8;
         if VirtualProtect(border_branch_ptr as _, 2, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
