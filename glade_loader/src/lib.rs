@@ -758,7 +758,7 @@ fn apply_all_patches() {
         return;
     }
     log("==========================================");
-    log("GladeLoader v1.1.0 initializing...");
+    log("GladeLoader v1.3.1 initializing...");
     log("Target: Tiny Glade (Bevy Engine)");
 
     unsafe {
