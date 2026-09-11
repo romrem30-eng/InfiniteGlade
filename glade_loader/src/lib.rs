@@ -65,7 +65,7 @@ impl Default for GladeConfig {
         Self {
             infinite_glade: true,
             uncapped_camera: true,
-            clutter_animations: false,
+            clutter_animations: true,
             clean_borders: false,
             free_clutter_gizmo: false,
         }
@@ -105,6 +105,8 @@ fn load_or_create_config() -> GladeConfig {
                     let val = content[pos + colon + 1..].trim_start();
                     if val.starts_with("false") {
                         config.infinite_glade = false;
+                    } else if val.starts_with("true") {
+                        config.infinite_glade = true;
                     }
                 }
             }
@@ -113,6 +115,8 @@ fn load_or_create_config() -> GladeConfig {
                     let val = content[pos + colon + 1..].trim_start();
                     if val.starts_with("false") {
                         config.uncapped_camera = false;
+                    } else if val.starts_with("true") {
+                        config.uncapped_camera = true;
                     }
                 }
             }
@@ -121,6 +125,8 @@ fn load_or_create_config() -> GladeConfig {
                     let val = content[pos + colon + 1..].trim_start();
                     if val.starts_with("false") {
                         config.clutter_animations = false;
+                    } else if val.starts_with("true") {
+                        config.clutter_animations = true;
                     }
                 }
             }
@@ -176,14 +182,45 @@ pub struct SpinConfig {
     pub pivot: [f32; 3],
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct Mat3x4 {
+    pub col0: [f32; 3], // X basis vector
+    pub col1: [f32; 3], // Y basis vector
+    pub col2: [f32; 3], // Z basis vector
+    pub col3: [f32; 3], // Translation vector
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct UberInstanceData {
+    pub mat: Mat3x4,     // 48 bytes
+    pub extra: [u8; 16], // 16 bytes instance metadata
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct AnimatedInstance {
+    pub this_ptr: usize,
+    pub desc_data: [u8; 16],
+    pub orig_data: UberInstanceData,
+    pub arg3_data: [u8; 16],
+    pub cfg: SpinConfig,
+}
+
 static SPIN_MAP: OnceLock<RwLock<HashMap<u64, SpinConfig>>> = OnceLock::new();
 static PENDING_ANIM_CONFIGS: OnceLock<RwLock<HashMap<String, SpinConfig>>> = OnceLock::new();
+static MESH_SPIN_MAP: OnceLock<RwLock<HashMap<u32, SpinConfig>>> = OnceLock::new();
+static SLOT_SPIN_MAP: OnceLock<RwLock<HashMap<u32, SpinConfig>>> = OnceLock::new();
+static ANIMATED_INSTANCES: OnceLock<RwLock<HashMap<u32, AnimatedInstance>>> = OnceLock::new();
 static START_TIME: OnceLock<Instant> = OnceLock::new();
 static FIRST_SPIN_LOGGED: AtomicBool = AtomicBool::new(false);
 
 #[unsafe(no_mangle)]
 pub static mut ORIGINAL_UPDATE_INSTANCE_DATA: usize = 0;
 #[unsafe(no_mangle)]
+pub static mut ORIGINAL_MESH_ATLAS_ADD: usize = 0;
+#[unsafe(no_mangle)]
+pub static mut ORIGINAL_UPDATE_INSTANCE_MESH: usize = 0;
 
 static mut ORIGINAL_NAME_HASH_COMPUTE: Option<unsafe extern "system" fn(*const u8, usize) -> u64> = None;
 
@@ -193,6 +230,18 @@ fn get_spin_map() -> &'static RwLock<HashMap<u64, SpinConfig>> {
 
 fn get_pending_configs() -> &'static RwLock<HashMap<String, SpinConfig>> {
     PENDING_ANIM_CONFIGS.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+fn get_mesh_spin_map() -> &'static RwLock<HashMap<u32, SpinConfig>> {
+    MESH_SPIN_MAP.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+fn get_slot_spin_map() -> &'static RwLock<HashMap<u32, SpinConfig>> {
+    SLOT_SPIN_MAP.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+fn get_animated_instances() -> &'static RwLock<HashMap<u32, AnimatedInstance>> {
+    ANIMATED_INSTANCES.get_or_init(|| RwLock::new(HashMap::new()))
 }
 
 fn get_start_time() -> &'static Instant {
@@ -259,6 +308,13 @@ unsafe extern "system" fn hook_name_hash_compute(ptr: *const u8, len: usize) -> 
             }
             if let Some(cfg) = parse_spin_tag(s) {
                 register_animated_mesh(hash, s, cfg);
+            } else if s.contains("windmill_blades") {
+                let default_cfg = SpinConfig {
+                    axis: Axis::X,
+                    speed_rad: (25.0f32).to_radians(),
+                    pivot: [0.0, 1.5, 0.0],
+                };
+                register_animated_mesh(hash, s, default_cfg);
             } else {
                 let clean_s = s
                     .trim_start_matches("clutter_icons/")
@@ -287,17 +343,7 @@ unsafe extern "system" fn hook_name_hash_compute(ptr: *const u8, len: usize) -> 
     hash
 }
 
-#[repr(C)]
-struct UberInstanceData {
-    col0: [f32; 3], // X basis vector
-    col1: [f32; 3], // Y basis vector
-    col2: [f32; 3], // Z basis vector
-    col3: [f32; 3], // Translation vector
-    flags: [u32; 4],
-}
-
-unsafe fn apply_rotation(data_ptr: *mut f32, axis: Axis, angle: f32, pivot: [f32; 3]) {
-    let mat = unsafe { &mut *(data_ptr as *mut UberInstanceData) };
+unsafe fn apply_rotation(mat: &mut Mat3x4, axis: Axis, angle: f32, pivot: [f32; 3]) {
     let c = angle.cos();
     let s = angle.sin();
 
@@ -342,7 +388,6 @@ unsafe fn apply_rotation(data_ptr: *mut f32, axis: Axis, angle: f32, pivot: [f32
     }
 }
 
-
 unsafe fn safe_read_u64(ptr: usize) -> Option<u64> {
     if ptr < 0x10000 || ptr > 0x00007FFFFFFFFFFF {
         return None;
@@ -355,10 +400,7 @@ unsafe fn safe_read_u64(ptr: usize) -> Option<u64> {
             std::mem::size_of::<windows_sys::Win32::System::Memory::MEMORY_BASIC_INFORMATION>(),
         )
     };
-    if res == 0 {
-        return None;
-    }
-    if mbi.State != windows_sys::Win32::System::Memory::MEM_COMMIT {
+    if res == 0 || mbi.State != windows_sys::Win32::System::Memory::MEM_COMMIT {
         return None;
     }
     const READABLE_MASK: u32 = windows_sys::Win32::System::Memory::PAGE_READONLY
@@ -372,82 +414,134 @@ unsafe fn safe_read_u64(ptr: usize) -> Option<u64> {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn on_update_instance(
+pub unsafe extern "C" fn hook_mesh_atlas_add(
+    ret_ptr: *mut u32,
+    rdx: usize,
+    name_hash: u64,
+    r9: usize,
+) -> *mut u32 {
+    let orig: extern "C" fn(*mut u32, usize, u64, usize) -> *mut u32 = unsafe {
+        std::mem::transmute(ORIGINAL_MESH_ATLAS_ADD)
+    };
+    let res = orig(ret_ptr, rdx, name_hash, r9);
+    if !ret_ptr.is_null() && (ret_ptr as usize) > 0x10000 {
+        if unsafe { *ret_ptr } == 0 {
+            let mesh_index = unsafe { *ret_ptr.add(1) };
+            if let Some(cfg) = get_spin_map().read().unwrap().get(&name_hash).copied() {
+                log(&format!(
+                    ">>> [MeshAtlas] Linked Hash 0x{:016X} -> mesh_index {}",
+                    name_hash, mesh_index
+                ));
+                get_mesh_spin_map().write().unwrap().insert(mesh_index, cfg);
+            }
+        }
+    }
+    res
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hook_update_instance_mesh(
+    this: usize,
+    desc: *const u8,
+    sub_index: u32,
+) {
+    if !desc.is_null() && (desc as usize) > 0x10000 {
+        let mesh_index = unsafe { *(desc as *const u32) };
+        let instance_slot = unsafe { *(desc.add(4) as *const u32) };
+        let subset_type = unsafe { *(desc.add(8)) };
+        if subset_type == 0x14 {
+            if let Some(cfg) = get_mesh_spin_map().read().unwrap().get(&mesh_index).copied() {
+                log(&format!(
+                    ">>> [ClutterAnimation] Slot {} assigned mesh_index {} -> ACTIVE SPIN",
+                    instance_slot, mesh_index
+                ));
+                get_slot_spin_map().write().unwrap().insert(instance_slot, cfg);
+            }
+        }
+    }
+    let orig: extern "C" fn(usize, *const u8, u32) = unsafe {
+        std::mem::transmute(ORIGINAL_UPDATE_INSTANCE_MESH)
+    };
+    orig(this, desc, sub_index);
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn on_update_instance_spawn(
+    this_ptr: usize,
     desc_ptr: usize,
-    data_ptr: *mut f32,
+    data_ptr: *const UberInstanceData,
     arg3_r8: usize,
 ) {
-    if data_ptr.is_null() || (data_ptr as usize) < 0x10000 {
+    if desc_ptr < 0x10000 || data_ptr.is_null() || (data_ptr as usize) < 0x10000 {
         return;
     }
 
-    let mut candidate_hashes = [0u64; 8];
-    let mut num_cand = 0;
+    let mesh_index = unsafe { *(desc_ptr as *const u32) };
+    let instance_slot = unsafe { *((desc_ptr as *const u32).add(1)) };
 
-    // 1. Check arg3_r8 (&[rbp + 0xa8])
-    if let Some(h) = unsafe { safe_read_u64(arg3_r8) } {
-        candidate_hashes[num_cand] = h; num_cand += 1;
-    }
-
-    // 2. Check desc_ptr
-    if let Some(h) = unsafe { safe_read_u64(desc_ptr) } {
-        candidate_hashes[num_cand] = h; num_cand += 1;
-    }
-    if let Some(h) = unsafe { safe_read_u64(desc_ptr + 8) } {
-        candidate_hashes[num_cand] = h; num_cand += 1;
-    }
-
-    // 3. Check caller rbp frame: rbp = data_ptr + 0x10
-    let rbp = (data_ptr as usize) + 0x10;
-    if let Some(hash_array_ptr) = unsafe { safe_read_u64(rbp + 0x160) } {
-        if let Some(i_val) = unsafe { safe_read_u64(rbp + 0x148) } {
-            let i = (i_val as u32) as usize;
-            if let Some(h) = unsafe { safe_read_u64(hash_array_ptr as usize + i * 8) } {
-                candidate_hashes[num_cand] = h; num_cand += 1;
-            }
-        }
-    }
-
-    static LOG_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let count = LOG_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    if count < 10 {
-        log(&format!(
-            ">>> [UberInstance #14] call #{}: desc=0x{:X}, data=0x{:X}, r8=0x{:X}, candidates={:016X?}",
-            count, desc_ptr, data_ptr as usize, arg3_r8, &candidate_hashes[..num_cand]
-        ));
-    }
-
-    let mut matched_hash = 0u64;
-    let mut matched_cfg = None;
-
-    {
-        let map = get_spin_map().read().unwrap();
-        for &h in &candidate_hashes[..num_cand] {
-            if let Some(cfg) = map.get(&h).copied() {
-                matched_hash = h;
-                matched_cfg = Some(cfg);
-                break;
-            }
-        }
-    }
+    let mesh_cfg = get_mesh_spin_map().read().unwrap().get(&mesh_index).copied();
+    let matched_cfg = if mesh_cfg.is_some() {
+        mesh_cfg
+    } else {
+        get_slot_spin_map().read().unwrap().get(&instance_slot).copied()
+    };
 
     if let Some(cfg) = matched_cfg {
-        let elapsed = get_start_time().elapsed().as_secs_f32();
-        let angle = elapsed * cfg.speed_rad;
-        unsafe { apply_rotation(data_ptr, cfg.axis, angle, cfg.pivot) };
-
-        if !FIRST_SPIN_LOGGED.swap(true, std::sync::atomic::Ordering::Relaxed) {
-            log(&format!(
-                ">>> [ClutterAnimation] ACTIVE SPIN on Hook #14: Hash 0x{:016X}",
-                matched_hash
-            ));
+        let mut anims = get_animated_instances().write().unwrap();
+        if anims.contains_key(&instance_slot) {
+            return;
         }
-    }
 
-    if matched_hash != 0 {
-        gizmo::apply_gizmo_offset(matched_hash, data_ptr);
-    } else if let Some(h) = candidate_hashes.get(0).copied() {
-        gizmo::apply_gizmo_offset(h, data_ptr);
+        let mut desc_copy = [0u8; 16];
+        unsafe { std::ptr::copy_nonoverlapping(desc_ptr as *const u8, desc_copy.as_mut_ptr(), 16) };
+        let orig_data = unsafe { *data_ptr };
+        let mut arg3_copy = [0u8; 16];
+        if arg3_r8 > 0x10000 {
+            unsafe { std::ptr::copy_nonoverlapping(arg3_r8 as *const u8, arg3_copy.as_mut_ptr(), 16) };
+        }
+
+        log(&format!(
+            ">>> [ClutterAnimation] Registering real-time spinning for slot {} (mesh_index {}, speed: {:.2} rad/s)",
+            instance_slot, mesh_index, cfg.speed_rad
+        ));
+
+        let inst = AnimatedInstance {
+            this_ptr,
+            desc_data: desc_copy,
+            orig_data,
+            arg3_data: arg3_copy,
+            cfg,
+        };
+        anims.insert(instance_slot, inst);
+    }
+}
+
+pub fn tick_clutter_animations() {
+    let map = get_animated_instances().read().unwrap();
+    if map.is_empty() {
+        return;
+    }
+    let elapsed = get_start_time().elapsed().as_secs_f32();
+    static TICK_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let tick = TICK_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    if tick % 600 == 1 {
+        log(&format!(">>> [ClutterAnimation] Frame tick #{}: rotating {} clutter instance(s)", tick, map.len()));
+    }
+    for inst in map.values() {
+        if unsafe { safe_read_u64(inst.this_ptr) }.is_none() {
+            continue;
+        }
+        let mut current_data = inst.orig_data;
+        let angle = elapsed * inst.cfg.speed_rad;
+        unsafe { apply_rotation(&mut current_data.mat, inst.cfg.axis, angle, inst.cfg.pivot) };
+        unsafe {
+            call_engine_update_instance(
+                inst.this_ptr,
+                inst.desc_data.as_ptr(),
+                inst.arg3_data.as_ptr() as usize,
+                &current_data as *const UberInstanceData as *const u8,
+            );
+        }
     }
 }
 
@@ -462,9 +556,9 @@ core::arch::global_asm!(
         sub rsp, 0x48
         movups [rsp + 0x20], xmm3
 
-        mov rcx, rdx
-        mov rdx, [rsp + 0x90]
-        call on_update_instance
+        mov r9, r8
+        mov r8, [rsp + 0x90]
+        call on_update_instance_spawn
 
         movups xmm3, [rsp + 0x20]
         add rsp, 0x48
@@ -475,6 +569,18 @@ core::arch::global_asm!(
 
         mov rax, [rip + ORIGINAL_UPDATE_INSTANCE_DATA]
         jmp rax
+
+    .global call_engine_update_instance
+    call_engine_update_instance:
+        sub rsp, 0x38
+        mov [rsp + 0x20], r9
+        mov qword ptr [rsp + 0x28], 0
+        xorps xmm3, xmm3
+        xor r9, r9
+        mov rax, [rip + ORIGINAL_UPDATE_INSTANCE_DATA]
+        call rax
+        add rsp, 0x38
+        ret
     "#
 );
 
@@ -525,12 +631,19 @@ pub extern "C" fn on_camera_update(cam_ptr: usize) {
             }
         }
     }
-}
 
+    tick_clutter_animations();
+}
 
 unsafe extern "C" {
     fn hook_update_instance_data_asm();
     fn hook_camera_system_asm();
+    fn call_engine_update_instance(
+        this: usize,
+        desc: *const u8,
+        arg3: usize,
+        data: *const u8,
+    );
 }
 
 fn parse_and_load_animations_json(path: &PathBuf) -> bool {
@@ -729,6 +842,44 @@ fn find_pattern(mem: &[u8], pat: &[u8], mask: &[bool]) -> Option<usize> {
     None
 }
 
+fn find_pattern_matches(mem: &[u8], pat: &[u8], mask: &[bool]) -> Vec<usize> {
+    let mut matches = Vec::new();
+    if pat.is_empty() || pat.len() > mem.len() {
+        return matches;
+    }
+    let first = pat[0];
+    let pat_len = pat.len();
+    let mut offset = 0;
+    while offset + pat_len <= mem.len() {
+        if let Some(pos) = mem[offset..].iter().position(|&b| b == first) {
+            let idx = offset + pos;
+            if idx + pat_len > mem.len() {
+                break;
+            }
+            let mut matched = true;
+            for j in 1..pat_len {
+                if mask[j] && mem[idx + j] != pat[j] {
+                    matched = false;
+                    break;
+                }
+            }
+            if matched {
+                matches.push(idx);
+            }
+            offset = idx + 1;
+        } else {
+            break;
+        }
+    }
+    matches
+}
+
+fn find_aob_matches(base: usize, image_size: usize, sig: &str) -> Vec<usize> {
+    let (pat, mask) = parse_pattern(sig);
+    let mem = unsafe { std::slice::from_raw_parts(base as *const u8, image_size) };
+    find_pattern_matches(mem, &pat, &mask)
+}
+
 unsafe fn resolve_rva(
     base: usize,
     image_size: usize,
@@ -758,7 +909,7 @@ fn apply_all_patches() {
         return;
     }
     log("==========================================");
-    log("GladeLoader v1.3.1 initializing...");
+    log("GladeLoader v1.3.2 initializing...");
     log("Target: Tiny Glade (Bevy Engine)");
 
     unsafe {
@@ -837,21 +988,99 @@ fn apply_all_patches() {
                 0xAE2670,
             );
 
+            let rva_circle_contains = resolve_rva(
+                base,
+                image_size,
+                "Infinite Glade: Circle2d::contains_point",
+                "F2 0F 10 01 0F 14 CA 0F 5C C8 0F 59 C9",
+                0,
+                0xDBFE60,
+            );
+            let rva_rect_contains = resolve_rva(
+                base,
+                image_size,
+                "Infinite Glade: Rectangle2d::contains_point",
+                "0F 28 05 ? ? ? ? F2 0F 10 19 F2 0F 10 61 08",
+                0,
+                0xDC2110,
+            );
+
             let patches_always_true = [
                 (rva_glade_shape, "is_within_glade_shape"),
                 (rva_pos_inside, "GladeBorder::is_pos_inside"),
                 (rva_shape_inside, "GladeBorder::is_shape_inside"),
                 (rva_curve2_inside, "GladeBorder::is_curve2_inside"),
+                (rva_circle_contains, "Circle2d::contains_point"),
+                (rva_rect_contains, "Rectangle2d::contains_point"),
             ];
 
             let mov_al_1_ret: [u8; 3] = [0xB0, 0x01, 0xC3]; // mov al, 1; ret
             for (rva, name) in patches_always_true {
-                let ptr = (base + rva) as *mut u8;
-                if VirtualProtect(ptr as _, 3, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
-                    std::ptr::copy_nonoverlapping(mov_al_1_ret.as_ptr(), ptr, 3);
+                if rva != 0 {
+                    let ptr = (base + rva) as *mut u8;
+                    if VirtualProtect(ptr as _, 3, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
+                        std::ptr::copy_nonoverlapping(mov_al_1_ret.as_ptr(), ptr, 3);
+                        let mut dummy = 0;
+                        VirtualProtect(ptr as _, 3, old_protect, &mut dummy);
+                        log(&format!(">>> [Infinite Glade] {} patched (always TRUE)!", name));
+                    }
+                }
+            }
+
+            // ----------------------------------------------------------
+            // Expand Terrain Raycast AABB Box from 65m to 1000m
+            // ----------------------------------------------------------
+            let rva_ray1 = resolve_rva(
+                base,
+                image_size,
+                "Terrain Heights Raycast AABB #1",
+                "C7 44 24 38 00 00 82 C2 F3 0F 11 44 24 3C F2 0F 10 05",
+                0,
+                0x1950DB4,
+            );
+            let rva_ray2 = resolve_rva(
+                base,
+                image_size,
+                "Terrain Heights Raycast AABB #2",
+                "C7 44 24 68 00 00 82 C2 F3 0F 11 4C 24 6C F2 0F 10 0D",
+                0,
+                0x149EEF4,
+            );
+
+            const NEW_BOUND_POS: f32 = 1000.0;
+            const NEW_BOUND_NEG: f32 = -1000.0;
+            let bytes_neg = NEW_BOUND_NEG.to_le_bytes();
+            let bytes_pos = NEW_BOUND_POS.to_le_bytes();
+
+            if rva_ray1 != 0 {
+                let ptr1 = (base + rva_ray1) as *mut u8;
+                if VirtualProtect(ptr1 as _, 0x30, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
+                    std::ptr::copy_nonoverlapping(bytes_neg.as_ptr(), ptr1.add(4), 4);
+                    std::ptr::copy_nonoverlapping(bytes_pos.as_ptr(), ptr1.add(0x22 + 4), 4);
                     let mut dummy = 0;
-                    VirtualProtect(ptr as _, 3, old_protect, &mut dummy);
-                    log(&format!(">>> [Infinite Glade] {} patched (always TRUE)!", name));
+                    VirtualProtect(ptr1 as _, 0x30, old_protect, &mut dummy);
+                    log(">>> [Infinite Glade] Raycast AABB #1 expanded to [-1000.0, 1000.0]!");
+                }
+
+                let disp = std::ptr::read_unaligned(ptr1.add(0xE + 4) as *const i32);
+                let table_ptr = ptr1.add(0xE + 8).offset(disp as isize);
+                if VirtualProtect(table_ptr as _, 8, PAGE_READWRITE, &mut old_protect) != 0 {
+                    std::ptr::copy_nonoverlapping(bytes_neg.as_ptr(), table_ptr, 4);
+                    std::ptr::copy_nonoverlapping(bytes_pos.as_ptr(), table_ptr.add(4), 4);
+                    let mut dummy = 0;
+                    VirtualProtect(table_ptr as _, 8, old_protect, &mut dummy);
+                    log(">>> [Infinite Glade] Raycast AABB shared rdata table expanded to [-1000.0, 1000.0]!");
+                }
+            }
+
+            if rva_ray2 != 0 {
+                let ptr2 = (base + rva_ray2) as *mut u8;
+                if VirtualProtect(ptr2 as _, 0x30, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
+                    std::ptr::copy_nonoverlapping(bytes_neg.as_ptr(), ptr2.add(4), 4);
+                    std::ptr::copy_nonoverlapping(bytes_pos.as_ptr(), ptr2.add(0x22 + 4), 4);
+                    let mut dummy = 0;
+                    VirtualProtect(ptr2 as _, 0x30, old_protect, &mut dummy);
+                    log(">>> [Infinite Glade] Raycast AABB #2 expanded to [-1000.0, 1000.0]!");
                 }
             }
         } else {
@@ -861,7 +1090,7 @@ fn apply_all_patches() {
         // --------------------------------------------------------------
         // Patch 2, 3, 4: Camera Pan Delta, Perimeter Clamps & Zoom Unlimit
         // --------------------------------------------------------------
-        if config.uncapped_camera {
+        if config.uncapped_camera || config.clutter_animations {
             let rva_cam_delta = resolve_rva(
                 base,
                 image_size,
@@ -870,16 +1099,8 @@ fn apply_all_patches() {
                 11, // offset to '76 2B'
                 0xB79FED,
             );
-            let cam_delta_ptr = (base + rva_cam_delta) as *mut u8;
-            if VirtualProtect(cam_delta_ptr as _, 2, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
-                let patch: [u8; 2] = [0xEB, 0x2B]; // jbe -> jmp
-                std::ptr::copy_nonoverlapping(patch.as_ptr(), cam_delta_ptr, 2);
-                let mut dummy = 0;
-                VirtualProtect(cam_delta_ptr as _, 2, old_protect, &mut dummy);
-                log(">>> [Camera Unlimit] Camera pan delta clamp UNLOCKED!");
-            }
 
-            // Hook camera system function to feed real-time 3D camera matrices to Gizmo
+            // Hook camera system function to feed real-time ticks to Clutter Animations & Gizmo
             let mut rva_camera_fn = 0xB79ED0;
             if rva_cam_delta > 1000 {
                 let slice = std::slice::from_raw_parts((base + rva_cam_delta - 1000) as *const u8, 1000);
@@ -900,6 +1121,25 @@ fn apply_all_patches() {
                     log(&format!(">>> [Camera System] Hook armed at RVA 0x{:X}!", rva_camera_fn));
                 }
                 Err(e) => log(&format!("Notice: Camera hook failed: {:?}", e)),
+            }
+        }
+
+        if config.uncapped_camera {
+            let rva_cam_delta = resolve_rva(
+                base,
+                image_size,
+                "Camera Pan Delta Clamp",
+                "44 0F 2E DD 0F 28 EB 44 0F 28 D2 76 2B",
+                11, // offset to '76 2B'
+                0xB79FED,
+            );
+            let cam_delta_ptr = (base + rva_cam_delta) as *mut u8;
+            if VirtualProtect(cam_delta_ptr as _, 2, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
+                let patch: [u8; 2] = [0xEB, 0x2B]; // jbe -> jmp
+                std::ptr::copy_nonoverlapping(patch.as_ptr(), cam_delta_ptr, 2);
+                let mut dummy = 0;
+                VirtualProtect(cam_delta_ptr as _, 2, old_protect, &mut dummy);
+                log(">>> [Camera Unlimit] Camera pan delta clamp UNLOCKED!");
             }
 
             let rva_cam_pos = resolve_rva(
@@ -982,8 +1222,94 @@ fn apply_all_patches() {
         // --------------------------------------------------------------
         // Patch 6: Clutter Animation System (Spin Rotation)
         // --------------------------------------------------------------
-        // Paused for v1.3.1 stability release while mesh ID mapping is being upgraded
-        log(">>> [ClutterAnimation] Module paused for stability release (under active development)");
+        if config.clutter_animations {
+            scan_for_animations_json();
+
+            // 1. Hook NameHash::compute
+            let rva_name_hash = resolve_rva(
+                base,
+                image_size,
+                "NameHash::compute",
+                "48 83 EC 38 48 8D 05 ? ? ? ? 48 89 44 24 28 48 C7 44 24 20 C0 00 00 00",
+                0,
+                0xDC4E10,
+            );
+            match minhook::MinHook::create_hook(
+                (base + rva_name_hash) as *mut c_void,
+                hook_name_hash_compute as *mut c_void,
+            ) {
+                Ok(trampoline) => {
+                    ORIGINAL_NAME_HASH_COMPUTE = Some(std::mem::transmute(trampoline));
+                    log(&format!(">>> [ClutterAnimation] NameHash::compute hook armed at RVA 0x{:X}!", rva_name_hash));
+                }
+                Err(e) => log(&format!("Notice: NameHash::compute hook failed: {:?}", e)),
+            }
+
+            // 2. Hook MeshAtlas::add
+            let rva_mesh_atlas = resolve_rva(
+                base,
+                image_size,
+                "MeshAtlas::add",
+                "55 41 57 41 56 41 55 41 54 56 57 53 48 81 EC B8 01 00 00 48 8D AC 24 80 00 00 00 44 0F 29 9D 20 01 00 00",
+                0,
+                0xBFCEA0,
+            );
+            match minhook::MinHook::create_hook(
+                (base + rva_mesh_atlas) as *mut c_void,
+                hook_mesh_atlas_add as *mut c_void,
+            ) {
+                Ok(trampoline) => {
+                    ORIGINAL_MESH_ATLAS_ADD = trampoline as usize;
+                    log(&format!(">>> [ClutterAnimation] MeshAtlas::add hook armed at RVA 0x{:X}!", rva_mesh_atlas));
+                }
+                Err(e) => log(&format!("Notice: MeshAtlas::add hook failed: {:?}", e)),
+            }
+
+            // 3. Hook GpuWorld::update_instance_mesh
+            let rva_update_mesh = resolve_rva(
+                base,
+                image_size,
+                "GpuWorld::update_instance_mesh",
+                "41 57 41 56 56 57 53 48 83 EC 40 48 89 D3 48 89 CF 0F B6 42 08",
+                0,
+                0x9AE770,
+            );
+            match minhook::MinHook::create_hook(
+                (base + rva_update_mesh) as *mut c_void,
+                hook_update_instance_mesh as *mut c_void,
+            ) {
+                Ok(trampoline) => {
+                    ORIGINAL_UPDATE_INSTANCE_MESH = trampoline as usize;
+                    log(&format!(">>> [ClutterAnimation] GpuWorld::update_instance_mesh hook armed at RVA 0x{:X}!", rva_update_mesh));
+                }
+                Err(e) => log(&format!("Notice: GpuWorld::update_instance_mesh hook failed: {:?}", e)),
+            }
+
+            // 4. Hook OwnedGpuWorldSubset::update_instance_data<UberInstanceData> (clutter props)
+            let matches = find_aob_matches(
+                base,
+                image_size,
+                "41 57 41 56 41 55 41 54 56 57 53 48 81 EC 80 00 00 00 0F 29 74 24 70 66 0F 6F F3 4D 89 C7 48 89 D7",
+            );
+            let rva_update_data = if !matches.is_empty() {
+                matches[0]
+            } else {
+                0x17CD750
+            };
+            match minhook::MinHook::create_hook(
+                (base + rva_update_data) as *mut c_void,
+                hook_update_instance_data_asm as *mut c_void,
+            ) {
+                Ok(trampoline) => {
+                    ORIGINAL_UPDATE_INSTANCE_DATA = trampoline as usize;
+                    log(&format!(">>> [ClutterAnimation] update_instance_data hook armed at RVA 0x{:X}!", rva_update_data));
+                }
+                Err(e) => log(&format!("Notice: update_instance_data hook failed: {:?}", e)),
+            }
+            log(">>> [ClutterAnimation] Real-time animation pipeline armed and ready!");
+        } else {
+            log(">>> [ClutterAnimation] Module DISABLED by user configuration");
+        }
 
         // --------------------------------------------------------------
         // Patch 7: Free Clutter 3D Gizmo ("Move It")

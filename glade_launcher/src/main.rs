@@ -526,10 +526,7 @@ impl GladeApp {
     fn ensure_loader_installed(&mut self) {
         if let Some(ref gdir) = self.game_dir {
             let dll_dest = gdir.join("glade_loader.dll");
-            let needs_write = match fs::read(&dll_dest) {
-                Ok(existing) => existing != EMBEDDED_DLL,
-                Err(_) => true,
-            };
+            let needs_write = !dll_dest.exists();
             if needs_write {
                 if fs::write(&dll_dest, EMBEDDED_DLL).is_ok() {
                     self.status_text = "GladeLoader DLL installed / updated".to_string();
