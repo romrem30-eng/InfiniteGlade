@@ -909,7 +909,7 @@ fn apply_all_patches() {
         return;
     }
     log("==========================================");
-    log("GladeLoader v1.3.2 initializing...");
+    log("GladeLoader v1.3.3 initializing...");
     log("Target: Tiny Glade (Bevy Engine)");
 
     unsafe {
@@ -961,15 +961,15 @@ fn apply_all_patches() {
                 "Infinite Glade: is_within_glade_shape",
                 "80 3D ? ? ? ? 00 74 ? 0F 28 D0 F3 0F 59 D0",
                 0,
-                0xA05910,
+                0xA1A610,
             );
             let rva_pos_inside = resolve_rva(
                 base,
                 image_size,
                 "Infinite Glade: GladeBorder::is_pos_inside",
-                "48 89 C8 48 83 C1 04 83 38 01 0F 85 ? ? ? ? E9 ? ? ? ? CC CC CC CC CC CC CC CC CC CC CC 56 57 48 83",
+                "48 89 C8 48 83 C1 04 83 38 01 0F 85 ? ? ? ? E9 ? ? ? ? CC CC CC CC CC CC CC CC CC CC CC 41 56 56 57 55 53",
                 0,
-                0xA00210,
+                0xA8CB90,
             );
             let rva_shape_inside = resolve_rva(
                 base,
@@ -977,7 +977,7 @@ fn apply_all_patches() {
                 "Infinite Glade: GladeBorder::is_shape_inside",
                 "41 56 56 57 55 53 48 81 EC E0 00 00 00 44 0F 29 84 24 D0 00 00 00",
                 0,
-                0xAE2380,
+                0xA8CBB0,
             );
             let rva_curve2_inside = resolve_rva(
                 base,
@@ -985,16 +985,16 @@ fn apply_all_patches() {
                 "Infinite Glade: GladeBorder::is_curve2_inside",
                 "41 57 41 56 56 57 53 48 83 EC 20 48 8B 5A 10 48 85 DB 74",
                 0,
-                0xAE2670,
+                0xA8CEA0,
             );
 
             let rva_circle_contains = resolve_rva(
                 base,
                 image_size,
                 "Infinite Glade: Circle2d::contains_point",
-                "F2 0F 10 01 0F 14 CA 0F 5C C8 0F 59 C9",
+                "F2 0F 10 01 0F 14 CA 0F 5C C8 0F 59 C9 F3 0F 16 C1 F3 0F 58 C1 F3 0F 10 49 08 F3 0F 59 C9 0F 2E C8",
                 0,
-                0xDBFE60,
+                0xDF39F0,
             );
             let rva_rect_contains = resolve_rva(
                 base,
@@ -1002,7 +1002,7 @@ fn apply_all_patches() {
                 "Infinite Glade: Rectangle2d::contains_point",
                 "0F 28 05 ? ? ? ? F2 0F 10 19 F2 0F 10 61 08",
                 0,
-                0xDC2110,
+                0xDF5CA0,
             );
 
             let patches_always_true = [
@@ -1036,7 +1036,7 @@ fn apply_all_patches() {
                 "Terrain Heights Raycast AABB #1",
                 "C7 44 24 38 00 00 82 C2 F3 0F 11 44 24 3C F2 0F 10 05",
                 0,
-                0x1950DB4,
+                0x17ED134,
             );
             let rva_ray2 = resolve_rva(
                 base,
@@ -1044,7 +1044,7 @@ fn apply_all_patches() {
                 "Terrain Heights Raycast AABB #2",
                 "C7 44 24 68 00 00 82 C2 F3 0F 11 4C 24 6C F2 0F 10 0D",
                 0,
-                0x149EEF4,
+                0x14D42C4,
             );
 
             const NEW_BOUND_POS: f32 = 1000.0;
@@ -1097,11 +1097,11 @@ fn apply_all_patches() {
                 "Camera Pan Delta Clamp",
                 "44 0F 2E DD 0F 28 EB 44 0F 28 D2 76 2B",
                 11, // offset to '76 2B'
-                0xB79FED,
+                0xAC747D,
             );
 
             // Hook camera system function to feed real-time ticks to Clutter Animations & Gizmo
-            let mut rva_camera_fn = 0xB79ED0;
+            let mut rva_camera_fn = 0xAC7360;
             if rva_cam_delta > 1000 {
                 let slice = std::slice::from_raw_parts((base + rva_cam_delta - 1000) as *const u8, 1000);
                 for i in (0..slice.len().saturating_sub(4)).rev() {
@@ -1131,7 +1131,7 @@ fn apply_all_patches() {
                 "Camera Pan Delta Clamp",
                 "44 0F 2E DD 0F 28 EB 44 0F 28 D2 76 2B",
                 11, // offset to '76 2B'
-                0xB79FED,
+                0xAC747D,
             );
             let cam_delta_ptr = (base + rva_cam_delta) as *mut u8;
             if VirtualProtect(cam_delta_ptr as _, 2, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
@@ -1148,7 +1148,7 @@ fn apply_all_patches() {
                 "Camera Position Boundary Clamp",
                 "01 0F 85 02 03 00 00 44 0F 28 54",
                 1, // offset to '0F 85 02 03 00 00'
-                0xB7A068,
+                0xAC74F8,
             );
             let cam_pos_ptr = (base + rva_cam_pos) as *mut u8;
             if VirtualProtect(cam_pos_ptr as _, 6, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
@@ -1165,7 +1165,7 @@ fn apply_all_patches() {
                 "Max Zoom Float",
                 "00 00 40 40 00 00 20 42 00 00 10 41 00 00 C8 44",
                 4, // offset to 40.0f
-                0x2EAE1E4,
+                0x2FC6594,
             );
             let zoom_ptr = (base + rva_zoom_float) as *mut f32;
             if VirtualProtect(zoom_ptr as _, 4, PAGE_READWRITE, &mut old_protect) != 0 {
@@ -1181,7 +1181,7 @@ fn apply_all_patches() {
                 "Zoom Anywhere Check",
                 "0F 2E DA 0F 86 61 01 00 00",
                 3, // offset to '0F 86 61 01 00 00'
-                0x91AD8E,
+                0x9D852E,
             );
             let zoom_check_ptr = (base + rva_zoom_check) as *mut u8;
             if VirtualProtect(zoom_check_ptr as _, 6, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
@@ -1205,7 +1205,7 @@ fn apply_all_patches() {
                 "Clean Glade Border Stones",
                 "48 8B 01 80 38 0F 75 19 0F 28 B5",
                 6, // offset to '75 19'
-                0x2034D51,
+                0x2065181,
             );
             let border_branch_ptr = (base + rva_border_branch) as *mut u8;
             if VirtualProtect(border_branch_ptr as _, 2, PAGE_EXECUTE_READWRITE, &mut old_protect) != 0 {
@@ -1232,7 +1232,7 @@ fn apply_all_patches() {
                 "NameHash::compute",
                 "48 83 EC 38 48 8D 05 ? ? ? ? 48 89 44 24 28 48 C7 44 24 20 C0 00 00 00",
                 0,
-                0xDC4E10,
+                0xDF89A0,
             );
             match minhook::MinHook::create_hook(
                 (base + rva_name_hash) as *mut c_void,
@@ -1252,7 +1252,7 @@ fn apply_all_patches() {
                 "MeshAtlas::add",
                 "55 41 57 41 56 41 55 41 54 56 57 53 48 81 EC B8 01 00 00 48 8D AC 24 80 00 00 00 44 0F 29 9D 20 01 00 00",
                 0,
-                0xBFCEA0,
+                0xA48A80,
             );
             match minhook::MinHook::create_hook(
                 (base + rva_mesh_atlas) as *mut c_void,
@@ -1272,7 +1272,7 @@ fn apply_all_patches() {
                 "GpuWorld::update_instance_mesh",
                 "41 57 41 56 56 57 53 48 83 EC 40 48 89 D3 48 89 CF 0F B6 42 08",
                 0,
-                0x9AE770,
+                0x9DE600,
             );
             match minhook::MinHook::create_hook(
                 (base + rva_update_mesh) as *mut c_void,
@@ -1291,10 +1291,14 @@ fn apply_all_patches() {
                 image_size,
                 "41 57 41 56 41 55 41 54 56 57 53 48 81 EC 80 00 00 00 0F 29 74 24 70 66 0F 6F F3 4D 89 C7 48 89 D7",
             );
-            let rva_update_data = if !matches.is_empty() {
+            let rva_update_data = if matches.contains(&0x95DA40) {
+                0x95DA40
+            } else if matches.len() > 14 {
+                matches[14]
+            } else if !matches.is_empty() {
                 matches[0]
             } else {
-                0x17CD750
+                0x95DA40
             };
             match minhook::MinHook::create_hook(
                 (base + rva_update_data) as *mut c_void,
