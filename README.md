@@ -7,6 +7,16 @@
 
 Infinite Glade is a native gameplay and camera overhaul modification for Tiny Glade, removing boundary constraints and expanding the building canvas into an endless flat horizon with 150-meter stratosphere camera zoom.
 
+> [!IMPORTANT]
+> **Community Notice: Security, Transparency & Why This Isn't on Steam Workshop**  
+> To those in the official Tiny Glade Discord wondering if this project is "sus" or worrying about third-party binaries:
+> 
+> 1. **Reputation & Common Sense:** The author's primary personal Steam account holds over 600 purchased games and a long-standing history. Risking a legitimate, high-value account with thousands of hours in games like Tiny Glade to distribute malware makes zero sense. There is nothing to steal, and nothing to hide.
+> 2. **Why It Cannot Be a Steam Workshop Item:** Tiny Glade is built with Rust on the custom Bevy engine. Building perimeters, terrain raycasts, and camera collision spheres are hardcoded into the compiled machine code. The Steam Workshop strictly supports static glTF clutter props; it is technically impossible to unlock engine constraints through Workshop items. Runtime memory detouring is the only way to achieve this (exactly like SKSE for Skyrim, ScriptHook for GTA, or SMAPI for Stardew Valley).
+> 3. **100% Free, Auditable & Open Source:** Every single line of code, hook definition, and memory scanner is publicly available right here in this repository under the MIT License. You do not have to trust pre-built binaries: you can read every instruction yourself and compile the project directly using `cargo build --release`.
+> 
+> If you are completely satisfied with the default 40-meter circle and prefer only using the official Workshop, that is totally fine—enjoy the vanilla game. Infinite Glade was built for creators who want to construct massive fortifications, sprawling villages, and monumental castles without artificial invisible walls.
+
 > [!NOTE]
 > **Project Status: Proof of Concept (PoC / Tech Preview)**  
 > This project demonstrates that Tiny Glade's internal boundary and camera constraints can be unlocked at runtime without sacrificing engine stability or rendering performance. Active development and community feedback are welcome.
