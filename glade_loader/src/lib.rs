@@ -449,12 +449,14 @@ pub unsafe extern "C" fn hook_update_instance_mesh(
         let mesh_index = unsafe { *(desc as *const u32) };
         let instance_slot = unsafe { *(desc.add(4) as *const u32) };
         let subset_type = unsafe { *(desc.add(8)) };
-        if let Some(cfg) = get_mesh_spin_map().read().unwrap().get(&mesh_index).copied() {
-            log(&format!(
-                ">>> [ClutterAnimation] Slot {} assigned mesh_index {} (subset 0x{:02X}) -> ACTIVE SPIN",
-                instance_slot, mesh_index, subset_type
-            ));
-            get_slot_spin_map().write().unwrap().insert(instance_slot, cfg);
+        if subset_type == 0x14 {
+            if let Some(cfg) = get_mesh_spin_map().read().unwrap().get(&mesh_index).copied() {
+                log(&format!(
+                    ">>> [ClutterAnimation] Slot {} assigned mesh_index {} -> ACTIVE SPIN",
+                    instance_slot, mesh_index
+                ));
+                get_slot_spin_map().write().unwrap().insert(instance_slot, cfg);
+            }
         }
     }
     let orig: extern "C" fn(usize, *const u8, u32) = unsafe {
@@ -1289,12 +1291,12 @@ fn apply_all_patches() {
                 image_size,
                 "41 57 41 56 41 55 41 54 56 57 53 48 81 EC 80 00 00 00 0F 29 74 24 70 66 0F 6F F3 4D 89 C7 48 89 D7",
             );
-            let rva_update_data = if matches.len() > 8 {
-                matches[8]
+            let rva_update_data = if matches.len() > 14 {
+                matches[14]
             } else if !matches.is_empty() {
                 matches[0]
             } else {
-                0x953AC0
+                0x955390
             };
             match minhook::MinHook::create_hook(
                 (base + rva_update_data) as *mut c_void,
