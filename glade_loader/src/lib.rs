@@ -65,7 +65,7 @@ impl Default for GladeConfig {
         Self {
             infinite_glade: true,
             uncapped_camera: true,
-            clutter_animations: true,
+            clutter_animations: false,
             clean_borders: false,
             free_clutter_gizmo: false,
         }
@@ -98,8 +98,10 @@ fn load_or_create_config() -> GladeConfig {
     }
 
     if let Some(ref path) = config_path {
-        if let Ok(content) = fs::read_to_string(path) {
+        if let Ok(mut content) = fs::read_to_string(path) {
             log(&format!(">>> [Config] Loaded config from {:?}", path));
+            let mut file_changed = false;
+
             if let Some(pos) = content.find("\"infinite_glade\"") {
                 if let Some(colon) = content[pos..].find(':') {
                     let val = content[pos + colon + 1..].trim_start();
@@ -122,11 +124,23 @@ fn load_or_create_config() -> GladeConfig {
             }
             if let Some(pos) = content.find("\"clutter_animations\"") {
                 if let Some(colon) = content[pos..].find(':') {
-                    let val = content[pos + colon + 1..].trim_start();
+                    let val_offset = pos + colon + 1;
+                    let val = content[val_offset..].trim_start();
                     if val.starts_with("false") {
                         config.clutter_animations = false;
                     } else if val.starts_with("true") {
-                        config.clutter_animations = true;
+                        // If config_version is not 2+, auto-migrate to false to fix wall crenellations
+                        if !content.contains("\"config_version\": 2") && !content.contains("\"config_version\":2") {
+                            if let Some(true_rel) = content[val_offset..].find("true") {
+                                let true_abs = val_offset + true_rel;
+                                content.replace_range(true_abs..true_abs + 4, "false");
+                                file_changed = true;
+                                log(">>> [Config] Migrated 'clutter_animations': true -> false to restore wall crenellations");
+                            }
+                            config.clutter_animations = false;
+                        } else {
+                            config.clutter_animations = true;
+                        }
                     }
                 }
             }
@@ -146,6 +160,11 @@ fn load_or_create_config() -> GladeConfig {
                     }
                 }
             }
+
+            if file_changed {
+                let _ = fs::write(path, &content);
+            }
+
             return config;
         }
     }
@@ -156,7 +175,7 @@ fn load_or_create_config() -> GladeConfig {
             .join("Saved Games")
             .join("Tiny Glade")
             .join("glade_config.json");
-        let default_json = "{\n  \"infinite_glade\": true,\n  \"uncapped_camera\": true,\n  \"clutter_animations\": true,\n  \"clean_borders\": false,\n  \"free_clutter_gizmo\": true\n}\n";
+        let default_json = "{\n  \"infinite_glade\": true,\n  \"uncapped_camera\": true,\n  \"clutter_animations\": false,\n  \"clean_borders\": false,\n  \"free_clutter_gizmo\": true,\n  \"config_version\": 2\n}\n";
         let _ = fs::write(&p, default_json);
         log(&format!(">>> [Config] Created default glade_config.json at {:?}", p));
     }
@@ -909,7 +928,7 @@ fn apply_all_patches() {
         return;
     }
     log("==========================================");
-    log("GladeLoader v1.3.5 initializing...");
+    log("GladeLoader v1.3.6 initializing...");
     log("Target: Tiny Glade (Bevy Engine)");
 
     unsafe {

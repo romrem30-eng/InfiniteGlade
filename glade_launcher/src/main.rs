@@ -47,6 +47,8 @@ pub struct GladeConfig {
     pub free_clutter_gizmo: bool,
     #[serde(default)]
     pub tutorial_seen: bool,
+    #[serde(default)]
+    pub config_version: u32,
 }
 
 impl Default for GladeConfig {
@@ -58,6 +60,7 @@ impl Default for GladeConfig {
             clean_borders: false,
             free_clutter_gizmo: false,
             tutorial_seen: false,
+            config_version: 2,
         }
     }
 }
@@ -494,7 +497,14 @@ impl GladeApp {
 
         if let Some(ref p) = target_path {
             if let Ok(text) = fs::read_to_string(p) {
-                if let Ok(cfg) = serde_json::from_str::<GladeConfig>(&text) {
+                if let Ok(mut cfg) = serde_json::from_str::<GladeConfig>(&text) {
+                    if cfg.config_version < 2 {
+                        cfg.clutter_animations = false;
+                        cfg.config_version = 2;
+                        if let Ok(updated_json) = serde_json::to_string_pretty(&cfg) {
+                            let _ = fs::write(p, updated_json);
+                        }
+                    }
                     return (cfg, target_path);
                 }
             }
